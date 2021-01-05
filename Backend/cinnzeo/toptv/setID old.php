@@ -1,15 +1,15 @@
  <?php
     
-$servername = "imscorgau.ipagemysql.com";
+/*$servername = "imscorgau.ipagemysql.com";
 $username = "hasan";
 $password = "hasan";
-$dbname = "cinnzeo";
+$dbname = "comparemarket";*/
  
 
- /*$servername = "localhost";
+ $servername = "localhost";
 $username = "user1";
 $password = "SjuHp1egQTHLmUrO";
-$dbname = "cinnzeo";*/
+$dbname = "cinnzeo";
 
 $conn = mysqli_connect($servername, $username, $password, $dbname);
  

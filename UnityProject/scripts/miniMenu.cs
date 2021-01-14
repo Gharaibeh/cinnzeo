@@ -19,9 +19,11 @@ public class miniMenu : MonoBehaviour
     };
 
 
-    //string getallSizes = "http://imscorgau.ipage.com/cinnzeo/minimenusizes/GetSizes.php";
-    string getallSizes = "http://localhost/cinnzeo/toptv/GetSizes.php";
-    string uploadDeviceID = "http://localhost/cinnzeo/toptv/setID.php";
+
+    string uploadDeviceID = "http://imscorgau.ipage.com/cinnzeo/minimenusizes/menuConfigs.php";
+    //string uploadDeviceID = "http://localhost/cinnzeo/toptv/menuConfigs.php";
+
+
     int jsonIndex;
     int hrs, mins;
     Vector2 arrowSize;
@@ -49,7 +51,23 @@ public class miniMenu : MonoBehaviour
         SmallImages = new List<RawImage>();
         LargeImages = new List<ImageMenu>();
 
-        StartCoroutine(GetDeviceID());
+
+        StartCoroutine(CheckInternetConnection(isConnected =>
+        {
+            if (isConnected)
+            {
+                Debug.Log("Internet Available!");
+                hArrow.GetComponent<Image>().color = Color.green;
+                StartCoroutine(GetDeviceID());
+
+            }
+            else
+            {
+                Debug.Log("Internet Not Available");
+            }
+        }));
+
+
  
     }
 
@@ -61,6 +79,21 @@ public class miniMenu : MonoBehaviour
 
     }
 
+    IEnumerator CheckInternetConnection(Action<bool> action)
+    {
+        UnityWebRequest request = new UnityWebRequest("http://google.com");
+        yield return request.SendWebRequest();
+        if (request.error != null)
+        {
+            Debug.Log("Error");
+            action(false);
+        }
+        else
+        {
+            Debug.Log("Success");
+            action(true);
+        }
+    }
     IEnumerator GetDeviceID()
     {
         // Create a Web Form
@@ -78,119 +111,129 @@ public class miniMenu : MonoBehaviour
             }
             else
             {
-                print("Finished Uploading device ID");
-                StartCoroutine(SetupScreen());
+               // print(w.downloadHandler.text.ToString());
+                if (w.responseCode.ToString() == "200" || w.downloadHandler.text.ToString() == "success")
+                {
+                    if (w.downloadHandler.text.ToString().Contains("empty for"))
+                    {
+                        hArrow.transform.GetChild(0).GetComponent<Text>().text = "Loading configs for:\n " +
+                            w.downloadHandler.text.ToString().Substring(18).ToString();
+                    }
+                    else
+                    {
+                        hArrow.transform.GetChild(0).gameObject.SetActive(false);
+                        StartCoroutine(SetupScreen(w.downloadHandler.text.ToString()));
 
+                    }
+
+                }
+                else
+                    hArrow.transform.GetChild(0).GetComponent<Text>().text = "Something went wrong :(";
             }
+
+            
         }
     }
     // Update is called once per frame
-    IEnumerator SetupScreen()
+    IEnumerator SetupScreen(string _config)
     {
-        WWW data = new WWW(getallSizes);
-        yield return data;
-        var json = JSON.Parse(data.text);
-        for (int i = 0; i < json[0].Count; i++)
-        {
-            if (SystemInfo.deviceUniqueIdentifier.ToString() == json[0][i][0].Value.ToString())
-            {
-                jsonIndex = i;
-            }
-        
-        }
+        yield return new WaitForSeconds(1);
+        var json = JSON.Parse(_config);
 
-        if (jsonIndex == -1)
-            yield break;
-        
-        arrowSize.x = float.Parse(json[0][jsonIndex][3].Value.ToString().Substring(0, json[0][jsonIndex][3].Value.ToString().IndexOf("x")));
-        arrowSize.y = float.Parse(json[0][jsonIndex][3].Value.ToString().Substring(json[0][jsonIndex][3].Value.ToString().IndexOf("x")+1));
-        hArrow.transform.localScale = new Vector3(arrowSize.x, arrowSize.y, 1);
-
-
-
-
-        AnimationSpeed = float.Parse(json[0][jsonIndex][4].Value.ToString());
-        AnimationTime = float.Parse(json[0][jsonIndex][5].Value.ToString());
-        AnimationDelay = float.Parse(json[0][jsonIndex][6].Value.ToString());
-        AnimationDelayEnd = float.Parse(json[0][jsonIndex][7].Value.ToString());
-        EaseType = json[0][jsonIndex][8].Value.ToString();
-        yPosition = float.Parse(json[0][jsonIndex][9].Value.ToString());
-
-
-
-        xCoutns = json[0][jsonIndex][10].Count;
-         for (int i=0; i <xCoutns; i++)
-        {
-            xPositions.Add(float.Parse(json[0][jsonIndex][10][i][0].Value.ToString()));
-        }
-
-        hArrow.transform.localPosition = new Vector3(xPositions[0], yPosition, 0);
-
-       
-
-        //Downloading menu images
-        ImageMenu _img_l; // = new ImageMenu();
-        ImageMenu _img_s;//= new ImageMenu();
-
-        for (int i = 0; i < json[0][jsonIndex][11].Count; i++)
-        {
-            //large image
-            _img_l = new ImageMenu();
-            var www = new WWW(json[0][jsonIndex][11][i][3].Value.ToString() + json[0][jsonIndex][11][i][0].Value.ToString() + ".png");
-            yield return www;
-            LmenuImage.texture = www.texture;
-
-            _img_l.image = LmenuImage;
-            _img_l.txture = www.texture;
-             www = null;
-
-
-
-            _img_l.position.x = float.Parse(json[0][jsonIndex][11][i][1].Value.ToString().Substring(0, json[0][jsonIndex][11][i][1].Value.ToString().IndexOf("x")));
-            _img_l.position.y = float.Parse(json[0][jsonIndex][11][i][1].Value.ToString().Substring(json[0][jsonIndex][11][i][1].Value.ToString().IndexOf("x") + 1));
-            _img_l.size.x = float.Parse(json[0][jsonIndex][11][i][2].Value.ToString().Substring(0, json[0][jsonIndex][11][i][2].Value.ToString().IndexOf("x")));
-            _img_l.size.y = float.Parse(json[0][jsonIndex][11][i][2].Value.ToString().Substring(json[0][jsonIndex][11][i][2].Value.ToString().IndexOf("x") + 1));
-            LargeImages.Add(_img_l);
-             
-        }
-
-
-        //Small image
-        GameObject go;
-        for (int i = 0; i < json[0][jsonIndex][11].Count; i++)
-        {
-            go = new GameObject();
-            go.AddComponent<RawImage>();
-            go.name = "mini" + i.ToString(); 
-            go.transform.parent = hArrow.transform.parent;
-            var www2 = new WWW(json[0][jsonIndex][11][i][7].Value.ToString() + json[0][jsonIndex][11][i][4].Value.ToString() + ".png");
-            yield return www2;
-            go.GetComponent<RawImage>().texture = www2.texture;
-
-            go.GetComponent<RectTransform>().sizeDelta = new Vector2();
-            go.GetComponent<RectTransform>().localPosition = new Vector3();
-
-            RectTransform rt = go.gameObject.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(float.Parse(json[0][jsonIndex][11][i][6].Value.ToString().Substring(0, json[0][jsonIndex][11][i][6].Value.ToString().IndexOf("x"))), float.Parse(json[0][jsonIndex][11][i][6].Value.ToString().Substring(json[0][jsonIndex][11][i][6].Value.ToString().IndexOf("x") + 1)));
-            rt.localPosition = new Vector3(float.Parse(json[0][jsonIndex][11][i][5].Value.ToString().Substring(0, json[0][jsonIndex][11][i][5].Value.ToString().IndexOf("x"))), float.Parse(json[0][jsonIndex][11][i][5].Value.ToString().Substring(json[0][jsonIndex][11][i][5].Value.ToString().IndexOf("x") + 1)), 0);
-            SmallImages.Add(go.GetComponent<RawImage>());
-
-
-        }
-
-        // If time base
-        if (json[0][jsonIndex][1].Value.ToString() == "True")
-        {
-            hrs = int.Parse(json[0][jsonIndex][2].Value.ToString().Substring(0, 2));
-            mins = int.Parse(json[0][jsonIndex][2].Value.ToString().Substring(3));
-            int calcTime;
-            calcTime = mins - DateTime.Now.Minute;
-
-            StartCoroutine(startWorking(calcTime * 60));
-        }
+        //if active susbcription 
+        if (json[0].Value == "False")
+            yield return null;
         else
         {
-            StartCoroutine(startWorking(5.0f));
+            arrowSize.x = float.Parse(json[3].Value.ToString().Substring(0, json[3].Value.ToString().IndexOf("x")));
+            arrowSize.y = float.Parse(json[3].Value.ToString().Substring(json[3].Value.ToString().IndexOf("x") + 1));
+            hArrow.transform.localScale = new Vector3(arrowSize.x, arrowSize.y, 1);
+            string[] colorSpecs = json[4].Value.ToString().Split(',');
+            hArrow.GetComponent<Image>().color = new Color(float.Parse(colorSpecs[0]), float.Parse(colorSpecs[1]), float.Parse(colorSpecs[2]));
+
+            AnimationSpeed = float.Parse(json[5].Value.ToString());
+            AnimationTime = float.Parse(json[6].Value.ToString());
+            AnimationDelay = float.Parse(json[7].Value.ToString());
+            AnimationDelayEnd = float.Parse(json[8].Value.ToString());
+            EaseType = json[9].Value.ToString();
+            yPosition = float.Parse(json[10].Value.ToString());
+
+
+
+            xCoutns = json[11].Count;
+            for (int i = 0; i < xCoutns; i++)
+            {
+                xPositions.Add(float.Parse(json[11][i][0].Value.ToString()));
+            }
+
+            hArrow.transform.localPosition = new Vector3(xPositions[0], yPosition, 0);
+
+
+
+            //Downloading menu images
+            ImageMenu _img_l; // = new ImageMenu();
+            ImageMenu _img_s;//= new ImageMenu();
+
+            for (int i = 0; i < json[12].Count; i++)
+            {
+                //large image
+                _img_l = new ImageMenu();
+                var www = new WWW(json[12][i][3].Value.ToString() + json[12][i][0].Value.ToString() + ".png");
+                yield return www;
+                LmenuImage.texture = www.texture;
+
+                _img_l.image = LmenuImage;
+                _img_l.txture = www.texture;
+                www = null;
+
+
+
+                _img_l.position.x = float.Parse(json[12][i][1].Value.ToString().Substring(0, json[12][i][1].Value.ToString().IndexOf("x")));
+                _img_l.position.y = float.Parse(json[12][i][1].Value.ToString().Substring(json[12][i][1].Value.ToString().IndexOf("x") + 1));
+                _img_l.size.x = float.Parse(json[12][i][2].Value.ToString().Substring(0, json[12][i][2].Value.ToString().IndexOf("x")));
+                _img_l.size.y = float.Parse(json[12][i][2].Value.ToString().Substring(json[12][i][2].Value.ToString().IndexOf("x") + 1));
+                LargeImages.Add(_img_l);
+
+            }
+
+
+            //Small image
+            GameObject go;
+            for (int i = 0; i < json[12].Count; i++)
+            {
+                go = new GameObject();
+                go.AddComponent<RawImage>();
+                go.name = "mini" + i.ToString();
+                go.transform.parent = hArrow.transform.parent;
+                var www2 = new WWW(json[12][i][7].Value.ToString() + json[12][i][4].Value.ToString() + ".png");
+                yield return www2;
+                go.GetComponent<RawImage>().texture = www2.texture;
+
+                go.GetComponent<RectTransform>().sizeDelta = new Vector2();
+                go.GetComponent<RectTransform>().localPosition = new Vector3();
+
+                RectTransform rt = go.gameObject.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(float.Parse(json[12][i][6].Value.ToString().Substring(0, json[12][i][6].Value.ToString().IndexOf("x"))), float.Parse(json[12][i][6].Value.ToString().Substring(json[12][i][6].Value.ToString().IndexOf("x") + 1)));
+                rt.localPosition = new Vector3(float.Parse(json[12][i][5].Value.ToString().Substring(0, json[12][i][5].Value.ToString().IndexOf("x"))), float.Parse(json[12][i][5].Value.ToString().Substring(json[12][i][5].Value.ToString().IndexOf("x") + 1)), 0);
+                SmallImages.Add(go.GetComponent<RawImage>());
+
+
+            }
+
+            // If time base
+            if (json[1].Value.ToString() == "True")
+            {
+                hrs = int.Parse(json[2].Value.ToString().Substring(0, 2));
+                mins = int.Parse(json[2].Value.ToString().Substring(3));
+                int calcTime;
+                calcTime = mins - DateTime.Now.Minute;
+
+                StartCoroutine(startWorking(calcTime * 60));
+            }
+            else
+            {
+                StartCoroutine(startWorking(5.0f));
+            }
         }
 
 
